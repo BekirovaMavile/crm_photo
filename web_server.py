@@ -8,7 +8,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, request, send_from_directory, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
-from werkzeug.security import check_password_hash
 
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
@@ -18,10 +17,10 @@ ENV_PATH = ROOT / ".env"
 load_dotenv(ENV_PATH)
 
 from app.config import (  # noqa: E402
+    CRM_PASSWORD,
+    CRM_USERNAME,
     HOST,
     PORT,
-    WEB_ADMIN_PASSWORD_HASH,
-    WEB_ADMIN_USERNAME,
     WEB_SECRET_KEY,
     WEB_SESSION_COOKIE_SECURE,
     WEB_TRUSTED_PROXY_HOPS,
@@ -58,14 +57,14 @@ def _norm_cred(value: str | None) -> str:
         return ""
     return str(value).replace("\r", "").replace("\ufeff", "").strip()
 
-from app.config import CRM_USERNAME, CRM_PASSWORD
 
 def _auth_ok(username: str, password: str) -> bool:
     return (
-        username.strip() == CRM_USERNAME.strip()
-        and password.strip() == CRM_PASSWORD.strip()
+        _norm_cred(username) == _norm_cred(CRM_USERNAME)
+        and _norm_cred(password) == _norm_cred(CRM_PASSWORD)
     )
-    
+
+
 def _is_public_unauthenticated() -> bool:
     path = request.path
     method = request.method
@@ -213,15 +212,9 @@ def active_job():
 
 
 def main():
-    missing = []
-    if not _norm_cred(WEB_ADMIN_USERNAME):
-        missing.append("WEB_ADMIN_USERNAME")
-    if not _norm_cred(WEB_ADMIN_PASSWORD_HASH):
-        missing.append("WEB_ADMIN_PASSWORD_HASH")
-
-    if missing:
+    if not _norm_cred(CRM_USERNAME) or not _norm_cred(CRM_PASSWORD):
         print(
-            "Не заданы обязательные переменные для веб-входа: " + ", ".join(missing),
+            "Не заданы CRM_USERNAME или CRM_PASSWORD для входа в веб-интерфейс.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -233,7 +226,7 @@ def main():
         )
 
     print(f"Файл настроек: {ENV_PATH}", file=sys.stderr)
-    print(f"Веб-логин: {WEB_ADMIN_USERNAME}", file=sys.stderr)
+    print(f"Веб-логин: {CRM_USERNAME}", file=sys.stderr)
     print(f"SESSION_COOKIE_SECURE={WEB_SESSION_COOKIE_SECURE}", file=sys.stderr)
     print(f"TRUSTED_PROXY_HOPS={WEB_TRUSTED_PROXY_HOPS}", file=sys.stderr)
 
