@@ -1,0 +1,15 @@
+[Unit]
+Description=CRM Photo Export Web
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/crm_photo_export
+EnvironmentFile=/opt/crm_photo_export/.env
+ExecStart=/opt/crm_photo_export/venv/bin/gunicorn -c /opt/crm_photo_export/deploy/gunicorn.conf.py wsgi:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Вход — экспорт фото</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="wrap wrap--narrow">
+    <h1>Вход</h1>
+    <p class="lead">Введите отдельные учётные данные веб-доступа: <code class="code-hint">WEB_ADMIN_USERNAME</code> и пароль, хэш которого сохранён в <code class="code-hint">WEB_ADMIN_PASSWORD_HASH</code> в файле <code class="code-hint">.env</code>.</p>
+
+    <form id="login-form" class="card" autocomplete="on">
+      <label class="block-label">
+        <span>Логин</span>
+        <input type="text" id="username" name="username" required autocomplete="username" />
+      </label>
+      <label class="block-label">
+        <span>Пароль</span>
+        <input type="password" id="password" name="password" required autocomplete="current-password" />
+      </label>
+      <button type="submit" id="login-btn">Войти</button>
+      <p class="error" id="login-error" hidden></p>
+    </form>
+  </main>
+  <script src="/login.js"></script>
+</body>
+</html>

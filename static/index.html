@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Экспорт фото в CRM → Яндекс Диск</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <span class="topbar-spacer"></span>
+    <button type="button" class="btn-text" id="logout" title="Выйти из аккаунта">Выйти</button>
+  </header>
+  <main class="wrap">
+    <h1>Экспорт фото</h1>
+    <p class="lead">Выберите период синхронизации. Загрузка идёт на Яндекс Диск по настройкам проекта.</p>
+
+    <form id="form" class="card">
+      <div class="row">
+        <label>
+          <span>С даты</span>
+          <input type="date" id="date_from" required />
+        </label>
+        <label>
+          <span>По дату</span>
+          <input type="date" id="date_to" required />
+        </label>
+      </div>
+      <button type="submit" id="btn">Синхронизировать</button>
+    </form>
+
+    <section id="progress" class="card hidden" aria-live="polite">
+      <div class="progress-head">
+        <span id="status-label">Загрузка…</span>
+        <span id="counts" class="counts"></span>
+      </div>
+      <div class="bar-outer" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="bar-inner" id="bar"></div>
+      </div>
+      <p class="hint" id="hint"></p>
+      <p class="error" id="error" hidden></p>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
