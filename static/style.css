@@ -176,6 +176,22 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.btn-secondary {
+  margin-top: 0.65rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
 .hidden {
   display: none !important;
 }
@@ -225,4 +241,47 @@ button:disabled {
   margin: 0.75rem 0 0;
   color: var(--danger);
   font-size: 0.9rem;
+}
+
+.history-list {
+  margin-top: 0.5rem;
+}
+
+.history-item {
+  padding: 0.65rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.history-item:first-child {
+  border-top: none;
+}
+
+.history-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.history-status {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  margin-top: 0.15rem;
+}
+
+.history-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+
+.history-delete-danger {
+  color: #fecaca;
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  margin-top: 0.45rem;
+}
+
+.history-delete-danger:hover {
+  color: #fff;
+  background: rgba(220, 38, 38, 0.45);
 }

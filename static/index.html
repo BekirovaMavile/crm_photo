@@ -27,6 +27,11 @@
         </label>
       </div>
       <button type="submit" id="btn">Синхронизировать</button>
+      <div class="actions-row">
+        <button type="button" id="btn-pause" class="btn-secondary">Поставить на паузу</button>
+        <button type="button" id="btn-stop" class="btn-secondary">Остановить</button>
+      </div>
+      <button type="button" id="btn-history" class="btn-secondary">История загрузок</button>
     </form>
 
     <section id="progress" class="card hidden" aria-live="polite">
@@ -39,6 +44,15 @@
       </div>
       <p class="hint" id="hint"></p>
       <p class="error" id="error" hidden></p>
+      <button type="button" id="btn-delete-uploaded" class="btn-secondary hidden">Удалить выгруженные фото из CRM</button>
+    </section>
+
+    <section id="history" class="card hidden">
+      <div class="progress-head">
+        <span>История загрузок</span>
+        <button type="button" id="btn-history-clear" class="btn-text">Удалить всю историю</button>
+      </div>
+      <div id="history-list" class="history-list"></div>
     </section>
   </main>
   <script src="/app.js"></script>

@@ -1,5 +1,6 @@
 import base64
 import json
+from datetime import datetime
 import requests
 
 from app.config import (
@@ -178,6 +179,32 @@ class CRMClient:
             f"(entity={entity_id}, item={item_id}, field={field_id}). last_error={last_error}"
         )
 
+    def delete_attachments(self, entity_id: str, item_id: str, field_id: str):
+        payload = self._base_payload()
+        payload.update({
+            "action": "delete_attachment",
+            "entity_id": str(entity_id),
+            "item_id": str(item_id),
+            "field_id": str(field_id),
+        })
+        response = self.session.post(CRM_API_ENDPOINT, data=payload, timeout=120)
+        if response.status_code >= 400:
+            self.logger.error(response.text[:2000])
+            response.raise_for_status()
+        try:
+            result = response.json()
+        except json.JSONDecodeError:
+            self.logger.error(response.text[:2000])
+            raise RuntimeError("CRM API delete_attachment вернул не JSON")
+        if result.get("status") != "success":
+            raise RuntimeError(f"Ошибка delete_attachment: {result}")
+        data = result.get("data")
+        if isinstance(data, list):
+            return data
+        if isinstance(data, str) and data.strip():
+            return [x.strip() for x in data.split(",") if x.strip()]
+        return []
+
     def get_field_value(self, record: dict, field_id: str):
         if not field_id:
             return ""
@@ -204,15 +231,24 @@ class CRMClient:
         if not value:
             return ""
 
-        # CRM у тебя отдаёт так: 04/08/2025
-        parts = value.split(" ")[0].split("/")
-        if len(parts) == 3:
-            month, day, year = parts
-            if len(year) == 4:
-                return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+        token = value.split(" ")[0].strip()
 
-        if len(value) >= 10 and value[4] == "-" and value[7] == "-":
-            return value[:10]
+        # ISO-like format: YYYY-MM-DD
+        if len(token) == 10 and token[4] == "-" and token[7] == "-":
+            try:
+                dt = datetime.strptime(token, "%Y-%m-%d")
+                return dt.strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+
+        # Rukovoditel usually returns DD/MM/YYYY in RU setups.
+        if "/" in token:
+            for fmt in ("%d/%m/%Y", "%m/%d/%Y"):
+                try:
+                    dt = datetime.strptime(token, fmt)
+                    return dt.strftime("%Y-%m-%d")
+                except ValueError:
+                    continue
 
         return ""
 

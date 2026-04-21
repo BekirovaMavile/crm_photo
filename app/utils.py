@@ -42,13 +42,20 @@ def format_date_folder(date_str: str) -> str:
     return date_str[:10]
 
 
-def build_disk_path(base_path: str, user_name: str, date_folder: str, entity_name: str) -> str:
+def build_disk_path(
+    base_path: str,
+    user_name: str,
+    entity_group: str,
+    date_folder: str,
+    entity_name: str,
+) -> str:
     base_path = (base_path or "").rstrip("/")
     user_name = safe_name(user_name)
+    entity_group = safe_name(entity_group)
     date_folder = safe_name(date_folder)
     entity_name = safe_name(entity_name)
 
-    return f"{base_path}/{user_name}/{date_folder}/{entity_name}"
+    return f"{base_path}/{user_name}/{entity_group}/{date_folder}/{entity_name}"
 
 
 def normalize_value(value):

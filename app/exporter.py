@@ -17,6 +17,11 @@ from app.yandex_disk import YandexDiskClient
 
 
 class Exporter:
+    ENTITY_GROUP_NAMES = {
+        "79": "Улицы",
+        "110": "СП-ДП",
+    }
+
     def __init__(self, logger):
         self.logger = logger
         self.crm = CRMClient(logger)
@@ -25,13 +30,33 @@ class Exporter:
         self.crm.login()
 
         self._progress_callback = None
+        self._control_callback = None
+        self._stats_callback = None
+        self._uploaded_field_callback = None
         self._done = 0
         self._total = 0
+        self._seen_disk_paths = set()
+        self._records_stats = {"79": 0, "110": 0}
+        self._attachments_stats = {"79": 0, "110": 0}
 
-    def run(self, date_from: str, date_to: str, progress_callback=None):
+    def run(
+        self,
+        date_from: str,
+        date_to: str,
+        progress_callback=None,
+        control_callback=None,
+        stats_callback=None,
+        uploaded_field_callback=None,
+    ):
         self._progress_callback = progress_callback
+        self._control_callback = control_callback
+        self._stats_callback = stats_callback
         self._done = 0
         self._total = self.count_expected_uploads(date_from=date_from, date_to=date_to)
+        self._records_stats = {"79": 0, "110": 0}
+        self._attachments_stats = {"79": 0, "110": 0}
+        self._seen_disk_paths = set()
+        self._uploaded_field_callback = uploaded_field_callback
 
         self.logger.info("Старт экспорта")
         self.logger.info(f"Период: {date_from} - {date_to}")
@@ -61,6 +86,7 @@ class Exporter:
         total = 0
 
         for entity_id in CRM_ENTITY_IDS:
+            self._check_control()
             fields = CRM_FIELDS.get(entity_id)
             if not fields:
                 continue
@@ -86,6 +112,7 @@ class Exporter:
             )
 
             for record in filtered_records:
+                self._check_control()
                 for photo_field in self._photo_field_ids(fields):
                     raw_value = normalize_value(record.get(str(photo_field)))
                     file_names = self.parse_photo_names(raw_value)
@@ -103,6 +130,30 @@ class Exporter:
             "message": message or "",
         })
 
+    def _emit_stats(self):
+        if not self._stats_callback:
+            return
+        self._stats_callback({
+            "records_streets": self._records_stats.get("79", 0),
+            "records_spdp": self._records_stats.get("110", 0),
+            "attachments_streets": self._attachments_stats.get("79", 0),
+            "attachments_spdp": self._attachments_stats.get("110", 0),
+        })
+
+    def _check_control(self):
+        if not self._control_callback:
+            return
+        while True:
+            state = self._control_callback() or {}
+            if state.get("cancelled"):
+                raise RuntimeError("Остановлено пользователем")
+            if state.get("paused"):
+                self._emit_progress("Пауза")
+                import time
+                time.sleep(0.4)
+                continue
+            return
+
     def _adjust_total(self, delta: int):
         if not delta:
             return
@@ -114,6 +165,7 @@ class Exporter:
         self._emit_progress(message)
 
     def process_entity(self, entity_id: str, date_from: str, date_to: str):
+        self._check_control()
         fields = CRM_FIELDS.get(entity_id)
 
         if not fields:
@@ -145,11 +197,16 @@ class Exporter:
             date_to=date_to,
         )
         self.logger.info(f"Записей после фильтра по дате: {len(filtered_records)}")
+        if entity_id in self._records_stats:
+            self._records_stats[entity_id] = len(filtered_records)
+            self._emit_stats()
 
         for record in filtered_records:
+            self._check_control()
             self.process_record(entity_id=entity_id, record=record, fields=fields)
 
     def process_record(self, entity_id: str, record: dict, fields: dict):
+        self._check_control()
         item_id = normalize_value(record.get("id"))
         if not item_id:
             self.logger.warning(f"У записи нет id: entity={entity_id}")
@@ -164,10 +221,12 @@ class Exporter:
 
         user_name = normalize_value(user_value) or "Неизвестный пользователь"
         entity_name = normalize_value(entity_name_value) or f"entity_{entity_id}"
+        entity_group = self.ENTITY_GROUP_NAMES.get(str(entity_id), f"entity_{entity_id}")
 
         folder_path = build_disk_path(
             base_path=YANDEX_DISK_BASE_PATH,
             user_name=user_name,
+            entity_group=entity_group,
             date_folder=date_folder,
             entity_name=entity_name,
         )
@@ -177,6 +236,7 @@ class Exporter:
             photo_fields.append(fields.get("photos_extra"))
 
         for photo_field in photo_fields:
+            self._check_control()
             if not photo_field:
                 continue
 
@@ -194,6 +254,12 @@ class Exporter:
                     folder_path=folder_path,
                     original_file_names=file_names,
                 )
+                if self._uploaded_field_callback:
+                    self._uploaded_field_callback(
+                        entity_id=str(entity_id),
+                        item_id=str(item_id),
+                        field_id=str(photo_field),
+                    )
             except Exception as e:
                 self.logger.exception(
                     f"Ошибка обработки вложений поля "
@@ -225,6 +291,10 @@ class Exporter:
         """
 
         probe_filename = original_file_names[0]
+        self._check_control()
+        if entity_id in self._attachments_stats:
+            self._attachments_stats[entity_id] += len(original_file_names)
+            self._emit_stats()
 
         self.logger.info(
             f"Скачивание вложений поля из CRM: "
@@ -277,6 +347,7 @@ class Exporter:
         field_id: str,
         listed_names: list[str],
     ):
+        self._check_control()
         self.disk.ensure_folder_tree(folder_path)
 
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
@@ -291,6 +362,7 @@ class Exporter:
                 self._adjust_total(len(members) - len(listed_names))
 
             for member in members:
+                self._check_control()
                 inner_name = member.filename.split("/")[-1].split("\\")[-1].strip()
                 if not inner_name:
                     self._increment_done(1, message="Пустое имя в архиве, пропуск")
@@ -298,9 +370,11 @@ class Exporter:
 
                 safe_inner_name = safe_name(inner_name)
                 disk_path = f"{folder_path}/{safe_inner_name}"
+                disk_key = disk_path.lower()
 
-                if self.disk.file_exists(disk_path):
+                if disk_key in self._seen_disk_paths or self.disk.file_exists(disk_path):
                     self.logger.info(f"Файл уже существует, пропускаю: {disk_path}")
+                    self._seen_disk_paths.add(disk_key)
                     self._increment_done(1, message=f"Уже есть: {safe_inner_name}")
                     continue
 
@@ -322,16 +396,20 @@ class Exporter:
                     f"Файл загружен из ZIP: entity={entity_id} | item={item_id} | "
                     f"field={field_id} | file={safe_inner_name} | disk_path={disk_path}"
                 )
+                self._seen_disk_paths.add(disk_key)
                 self._increment_done(1, message=f"Загружен: {safe_inner_name}")
 
     def upload_single_file(self, file_name: str, file_bytes: bytes, folder_path: str):
+        self._check_control()
         self.disk.ensure_folder_tree(folder_path)
 
         safe_file_name = safe_name(file_name)
         disk_path = f"{folder_path}/{safe_file_name}"
+        disk_key = disk_path.lower()
 
-        if self.disk.file_exists(disk_path):
+        if disk_key in self._seen_disk_paths or self.disk.file_exists(disk_path):
             self.logger.info(f"Файл уже существует, пропускаю: {disk_path}")
+            self._seen_disk_paths.add(disk_key)
             self._increment_done(1, message=f"Уже есть: {safe_file_name}")
             return
 
@@ -342,4 +420,5 @@ class Exporter:
         )
 
         self.logger.info(f"Файл загружен: {disk_path}")
+        self._seen_disk_paths.add(disk_key)
         self._increment_done(1, message=f"Загружен: {safe_file_name}")
